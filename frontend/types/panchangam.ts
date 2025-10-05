@@ -54,6 +54,42 @@ export interface PanchangamRequest {
 
 export interface PanchangamResponse extends PanchangamData {}
 
+// New types for the periods API
+export interface PeriodDetail {
+  name: string;
+  start: string; // ISO string format
+  end: string; // ISO string format
+  start_formatted: string; // "HH:MM AM/PM" format
+  end_formatted: string; // "HH:MM AM/PM" format
+}
+
+export interface PeriodRequest {
+  date: string; // ISO date format (YYYY-MM-DD)
+  latitude: number;
+  longitude: number;
+}
+
+export interface PeriodsResponse {
+  date: string; // ISO date format (YYYY-MM-DD)
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  sunrise: string; // ISO string format with timezone
+  sunset: string; // ISO string format with timezone
+  moonrise: string; // ISO string format with timezone
+  moonset: string; // ISO string format with timezone
+  sunrise_next: string; // ISO string format with timezone
+  hindu_day_start?: string; // ISO string format with timezone
+  hindu_day_end?: string; // ISO string format with timezone
+  tithis: PeriodDetail[];
+  nakshatras: PeriodDetail[];
+  karanas: PeriodDetail[];
+  yogas: PeriodDetail[];
+  auspicious_periods?: PeriodDetail[];
+  inauspicious_periods?: PeriodDetail[];
+}
+
 // City options for the dropdown
 export interface CityOption {
   name: string;

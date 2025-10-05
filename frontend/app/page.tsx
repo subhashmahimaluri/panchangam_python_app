@@ -5,10 +5,17 @@ import { useEffect, useState } from "react";
 import CitySelector from "../components/CitySelector";
 import DatePicker from "../components/DatePicker";
 import PanchangamDisplay from "../components/PanchangamDisplay";
-import { CITIES, CityOption, PanchangamData } from "../types/panchangam";
+import PeriodsDisplay from "../components/PeriodsDisplay";
+import {
+  CITIES,
+  CityOption,
+  PanchangamData,
+  PeriodsResponse,
+} from "../types/panchangam";
 import {
   checkApiHealth,
   fetchPanchangamData,
+  fetchPanchangamPeriods,
   fetchSupportedCities,
 } from "../utils/api";
 
@@ -16,11 +23,13 @@ export default function HomePage() {
   const [panchangamData, setPanchangamData] = useState<PanchangamData | null>(
     null
   );
+  const [periodsData, setPeriodsData] = useState<PeriodsResponse | null>(null);
   const [cities, setCities] = useState<CityOption[]>(CITIES); // Initialize with default cities
   const [selectedCity, setSelectedCity] = useState<CityOption>(CITIES[0]); // Default to Bengaluru
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0] // Today's date in YYYY-MM-DD format
   );
+  const [viewMode, setViewMode] = useState<"single" | "periods">("periods"); // Default to new periods view
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiHealthy, setApiHealthy] = useState<boolean>(false);
@@ -66,7 +75,7 @@ export default function HomePage() {
     if (apiHealthy) {
       fetchData();
     }
-  }, [selectedCity, selectedDate, apiHealthy]);
+  }, [selectedCity, selectedDate, viewMode, apiHealthy]);
 
   const fetchData = async () => {
     if (!selectedCity || !selectedDate) return;
@@ -75,13 +84,26 @@ export default function HomePage() {
     setError(null);
 
     try {
-      const data = await fetchPanchangamData({
-        date: selectedDate,
-        latitude: selectedCity.latitude,
-        longitude: selectedCity.longitude,
-        city: selectedCity.name,
-      });
-      setPanchangamData(data);
+      if (viewMode === "periods") {
+        // Fetch periods data
+        const data = await fetchPanchangamPeriods({
+          date: selectedDate,
+          latitude: selectedCity.latitude,
+          longitude: selectedCity.longitude,
+        });
+        setPeriodsData(data);
+        setPanchangamData(null); // Clear single view data
+      } else {
+        // Fetch single panchangam data
+        const data = await fetchPanchangamData({
+          date: selectedDate,
+          latitude: selectedCity.latitude,
+          longitude: selectedCity.longitude,
+          city: selectedCity.name,
+        });
+        setPanchangamData(data);
+        setPeriodsData(null); // Clear periods data
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch Panchangam data"
@@ -152,6 +174,33 @@ export default function HomePage() {
                 onDateChange={setSelectedDate}
               />
             </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-1">
+                View Mode
+              </label>
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("periods")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === "periods"
+                      ? "bg-orange-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  📅 Multiple Periods
+                </button>
+                <button
+                  onClick={() => setViewMode("single")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === "single"
+                      ? "bg-orange-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  🕐 Single View
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -170,8 +219,11 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Panchangam Data */}
-        {panchangamData && !loading && (
+        {/* Conditional rendering based on view mode */}
+        {viewMode === "periods" && periodsData && !loading && (
+          <PeriodsDisplay data={periodsData} />
+        )}
+        {viewMode === "single" && panchangamData && !loading && (
           <PanchangamDisplay data={panchangamData} />
         )}
       </div>

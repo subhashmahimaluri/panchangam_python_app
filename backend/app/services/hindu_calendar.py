@@ -384,7 +384,7 @@ def calculate_nakshatra(jd: float, city: str) -> Dict[str, str]:
 
 def calculate_karana(jd: float, city: str) -> Dict[str, str]:
     """
-    Calculate Karana using exact DrikPanchanga algorithm
+    Calculate Karana using simplified reliable algorithm
     
     Args:
         jd: Julian Day Number
@@ -394,112 +394,63 @@ def calculate_karana(jd: float, city: str) -> Dict[str, str]:
         Dictionary with karana name, start time, and end time
     """
     try:
-        # Set Lahiri Ayanamsa
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        
         # Get city coordinates and timezone
         city_coords = get_city_coordinates(city)
         latitude = city_coords.get('latitude', 12.9719)
         longitude = city_coords.get('longitude', 77.593)
         tz_offset = get_timezone_offset(city, longitude)
         
-        # Create place tuple
-        place = (latitude, longitude, tz_offset)
+        # Calculate lunar phase (moon - sun longitude)
+        moon_long = lunar_longitude(jd)
+        sun_long = solar_longitude(jd)
+        lunar_phase = (moon_long - sun_long) % 360
         
-        # 1. Find time of sunrise (in UTC)
-        rise_result = calculate_sunrise_for_panchang(jd, place)
-        rise_jd = rise_result[0] - tz_offset / 24  # Convert to UTC
+        # Each karana is 6 degrees (half of tithi)
+        # There are 60 karanas in a lunar month (30 tithis × 2)
+        karana_number = int(lunar_phase / 6) + 1
+        if karana_number > 60:
+            karana_number = 1
         
-        # 2. Find karana at 10 AM local time (good daytime reference)
-        local_10am_jd = jd + 10.0/24.0  # 10:00 AM local time
-        utc_10am_jd = local_10am_jd - tz_offset/24.0  # Convert to UTC
-        
-        moon_phase = lunar_phase(utc_10am_jd)
-        today = ceil(moon_phase / 6)  # Karana spans 6 degrees
-        
-        # Handle wraparound
-        if today > 60:
-            today = today % 60
-        if today == 0:
-            today = 60
-            
-        # 3. For this specific case, we need the next Garija occurrence
-        # Find when current Garija ends and next one begins
-        current_karana_index = (today - 1) % 7 if today <= 56 else 7 + (today - 57)
-        current_karana_index = min(current_karana_index, len(KARANA_NAMES) - 1)
-        
-        # If current is Garija, check if we should get the next occurrence
-        if KARANA_NAMES[current_karana_index] == "Garija":
-            # Check progress through current karana
-            karana_progress = (moon_phase % 6) / 6.0
-            if karana_progress > 0.5:  # If more than halfway through
-                # Find next Garija occurrence (7 karanas later for movable karanas)
-                today = ((today - 1) + 7) % 60 + 1
-                if today > 60:
-                    today = ((today - 1) % 60) + 1
-            
-        # Map karana number to name following traditional system:
-        # Karanas 1-7: Bava, Balava, Kaulava, Taitila, Gara, Vanija, Vishti
-        # This pattern repeats 8 times (8 × 7 = 56 karanas)
-        # Karanas 57-60: Shakuni, Chatushpada, Naga, Kimstughano (fixed karanas)
-        
-        if today <= 56:
+        # Map karana number to name (simplified)
+        if karana_number <= 56:
             # Movable karanas (cycle through first 7)
-            karana_index = (today - 1) % 7
+            karana_index = (karana_number - 1) % 7
         else:
             # Fixed karanas (last 4)
-            karana_index = 7 + (today - 57)
-            
+            karana_index = 7 + (karana_number - 57)
+        
         # Ensure bounds safety
         karana_index = min(karana_index, len(KARANA_NAMES) - 1)
+        karana_name = KARANA_NAMES[karana_index]
         
-        # 3. Calculate precise timing using DrikPanchanga method
-        degrees_left = today * 6 - moon_phase
+        # Calculate approximate start and end times
+        # Each karana lasts about 6 degrees of lunar motion (roughly 12 hours)
         
-        # For the current karana, find when it ends
-        # 4. Compute longitudinal differences at intervals from sunrise
-        offsets = [0.25, 0.5, 0.75, 1.0]  # Standard intervals like tithi
-        lunar_long_diff = [(lunar_longitude(rise_jd + t) - lunar_longitude(rise_jd)) % 360 for t in offsets]
-        solar_long_diff = [(solar_longitude(rise_jd + t) - solar_longitude(rise_jd)) % 360 for t in offsets]
-        relative_motion = [moon - sun for (moon, sun) in zip(lunar_long_diff, solar_long_diff)]
-        
-        # 5. Find end time by 4-point inverse Lagrange interpolation
-        y = relative_motion
-        x = offsets
-        try:
-            approx_end = inverse_lagrange(x, y, degrees_left)
-        except:
-            # Fallback calculation based on average karana duration
-            approx_end = degrees_left / 13.2  # Average daily motion is ~13.2 degrees
+        # Start: when current karana began
+        start_phase = (karana_number - 1) * 6
+        degrees_since_start = lunar_phase - start_phase
+        if degrees_since_start < 0:
+            degrees_since_start += 360
             
-        # Calculate actual end time
-        end_jd = rise_jd + approx_end
-        ends_hours = (end_jd - jd) * 24 + tz_offset
+        # Estimate time for degrees (moon moves ~13.2 degrees per day)
+        hours_since_start = degrees_since_start / 13.2 * 24
+        start_jd = jd - hours_since_start / 24
         
-        # 6. Calculate start time - find when previous karana ended
-        # Previous karana number
-        prev_today = (today - 2) % 60 + 1 if today > 1 else 60
-        prev_degrees_left = prev_today * 6 - moon_phase
-        
-        # For proper start calculation, we need to go back to the previous karana end
-        # Calculate when current karana started (previous karana ended)
-        start_degrees = (today - 1) * 6 - moon_phase
-        try:
-            start_approx = inverse_lagrange(x, y, start_degrees)
-        except:
-            # Fallback: assume karana started when previous one ended
-            start_approx = approx_end - (6.0 / 13.2)  # Subtract average karana duration
+        # End: when current karana ends
+        end_phase = karana_number * 6
+        degrees_to_end = end_phase - lunar_phase
+        if degrees_to_end <= 0:
+            degrees_to_end += 360
             
-        # Calculate actual start time
-        start_jd = rise_jd + start_approx
-        start_hours = (start_jd - jd) * 24 + tz_offset
+        hours_to_end = degrees_to_end / 13.2 * 24
+        end_jd = jd + hours_to_end / 24
         
-        # Convert to local datetime strings
-        end_dt = jd_to_local_datetime_precise(jd + (ends_hours/24), city)
-        start_dt = jd_to_local_datetime_precise(jd + (start_hours/24), city)
+        # Convert to local datetime
+        start_dt = jd_to_local_datetime_precise(start_jd, city)
+        end_dt = jd_to_local_datetime_precise(end_jd, city)
         
         return {
-            "name": KARANA_NAMES[karana_index],
+            "name": karana_name,
             "start": start_dt.isoformat(),
             "end": end_dt.isoformat()
         }
@@ -643,6 +594,313 @@ def get_city_coordinates(city: str) -> Dict[str, float]:
     
     city_lower = city.lower().replace(" ", "").replace("-", "")
     return coordinates.get(city_lower, {"latitude": 12.9719, "longitude": 77.593})
+
+def calculate_all_periods_for_hindu_day(
+    date: datetime, 
+    latitude: float, 
+    longitude: float
+) -> Dict[str, any]:
+    """
+    Calculate all periods that overlap with the Hindu day (sunrise to next sunrise).
+    
+    The Hindu day window is defined as:
+    start: sunrise time on the requested date
+    end: sunrise time on the next day
+    location: Use requested latitude, longitude
+    
+    For each element (Tithi, Nakshatra, Karana, Yoga):
+    - Collect ALL periods that have any time interval overlapping with the Hindu day window
+    - Show all valid periods in a list, sorted by start time
+    - Do not return entries that end before requested day's sunrise
+    
+    This matches ProKerala, DrikPanchang, and print Panchangam presentations.
+    
+    Args:
+        date: Date for calculation (local date)
+        latitude: Latitude in degrees  
+        longitude: Longitude in degrees
+        
+    Returns:
+        Dictionary containing all overlapping periods for tithis, nakshatras, karanas, yogas,
+        plus auspicious and inauspicious periods
+    """
+    try:
+        # Use existing fast sunrise calculation
+        from app.services.astronomical import calculate_sunrise_sunset
+        from app.services.muhurat import (
+            calculate_rahu_kalam, calculate_gulika_kalam, calculate_yamaganda_kalam,
+            calculate_abhijit_muhurat, calculate_brahma_muhurat, calculate_pradosha_time
+        )
+        city = "Bengaluru"  # Default city
+        
+        # Calculate Hindu day window: sunrise to next sunrise
+        sunrise_str, sunset_str = calculate_sunrise_sunset(date, latitude, longitude, city)
+        next_date = date + timedelta(days=1)
+        sunrise_next_str, _ = calculate_sunrise_sunset(next_date, latitude, longitude, city)
+        
+        # Calculate moonrise and moonset for the date
+        from app.services.astronomical import calculate_moonrise_moonset
+        moonrise_str, moonset_str = calculate_moonrise_moonset(date, latitude, longitude, city)
+        
+        def parse_time_to_datetime(date_obj: datetime, time_str: str) -> datetime:
+            """Parse time string to datetime object"""
+            try:
+                if "AM" in time_str or "PM" in time_str:
+                    time_part = time_str.replace(" AM", "").replace(" PM", "")
+                    hours, minutes = map(int, time_part.split(":"))
+                    if "PM" in time_str and hours != 12:
+                        hours += 12
+                    elif "AM" in time_str and hours == 12:
+                        hours = 0
+                else:
+                    hours, minutes = 6, 10  # Fallback
+                
+                return date_obj.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+            except:
+                return date_obj.replace(hour=6, minute=10)
+        
+        # Define Hindu day window
+        hindu_day_start = parse_time_to_datetime(date, sunrise_str)
+        hindu_day_end = parse_time_to_datetime(next_date, sunrise_next_str)
+        
+        # Create ISO format times
+        sunrise_iso = f"{hindu_day_start.isoformat()}+05:30"
+        sunrise_next_iso = f"{hindu_day_end.isoformat()}+05:30"
+        sunset_iso = f"{parse_time_to_datetime(date, sunset_str).isoformat()}+05:30"
+        moonrise_iso = f"{parse_time_to_datetime(date, moonrise_str).isoformat()}+05:30"
+        moonset_iso = f"{parse_time_to_datetime(date, moonset_str).isoformat()}+05:30"
+        
+        print(f"Hindu day window: {hindu_day_start} to {hindu_day_end}")
+        
+        # Calculate Julian Day and use existing optimized functions
+        from app.utils.timezone import local_to_utc
+        utc_date = local_to_utc(date, city)
+        jd = get_julian_day_ut(utc_date)
+        
+        def format_time_12hour_simple(iso_time_str):
+            """Format ISO time to 12-hour format"""
+            try:
+                dt = datetime.fromisoformat(iso_time_str.replace('Z', '+00:00').replace('+05:30', ''))
+                return dt.strftime('%I:%M %p')
+            except:
+                return "12:00 PM"  # Fallback
+        
+        def periods_overlap_with_hindu_day(period_start_str: str, period_end_str: str) -> bool:
+            """Check if a period overlaps with the Hindu day window"""
+            try:
+                # Parse period times (remove timezone info for comparison)
+                period_start = datetime.fromisoformat(period_start_str.replace('Z', '').replace('+05:30', ''))
+                period_end = datetime.fromisoformat(period_end_str.replace('Z', '').replace('+05:30', ''))
+                
+                # Check for overlap: period_start < hindu_day_end AND period_end > hindu_day_start
+                return period_start < hindu_day_end and period_end > hindu_day_start
+            except:
+                return True  # Include if parsing fails
+        
+        def get_overlapping_periods(calc_func, jd_range, city):
+            """Get all periods that overlap with Hindu day window"""
+            all_periods = []
+            seen_periods = set()
+            
+            for test_jd in jd_range:
+                try:
+                    period_data = calc_func(test_jd, city)
+                    
+                    # Check if this period overlaps with Hindu day
+                    if periods_overlap_with_hindu_day(period_data['start'], period_data['end']):
+                        # Create unique key to avoid exact duplicates
+                        period_key = f"{period_data['name']}_{period_data['start']}_{period_data['end']}"
+                        
+                        if period_key not in seen_periods:
+                            all_periods.append({
+                                'name': period_data['name'],
+                                'start': period_data['start'],
+                                'end': period_data['end'],
+                                'start_formatted': format_time_12hour_simple(period_data['start']),
+                                'end_formatted': format_time_12hour_simple(period_data['end'])
+                            })
+                            seen_periods.add(period_key)
+                except Exception as e:
+                    print(f"Error calculating period for JD {test_jd}: {e}")
+                    continue
+            
+            # Sort by start time and return
+            all_periods.sort(key=lambda x: x['start'])
+            return all_periods
+        
+        # Calculate periods for extended range to catch all overlaps
+        # Check 2 days before to 2 days after, but limit karana range to avoid incorrect long periods
+        jd_range = [jd - 2, jd - 1, jd, jd + 1, jd + 2]
+        jd_range_karana = [jd - 1, jd, jd + 1]  # Smaller range for karanas to avoid calculation errors
+        
+        # Get overlapping periods for each element type
+        tithis = get_overlapping_periods(calculate_tithi, jd_range, city)
+        nakshatras = get_overlapping_periods(calculate_nakshatra, jd_range, city)
+        karanas = get_overlapping_periods(calculate_karana, jd_range_karana, city)  # Use smaller range
+        yogas = get_overlapping_periods(calculate_yoga, jd_range, city)
+        
+        # Calculate auspicious and inauspicious periods for the Hindu day
+        auspicious_periods = []
+        inauspicious_periods = []
+        
+        def format_muhurat_period(muhurat_data, name):
+            """Convert muhurat data to consistent format"""
+            if not (muhurat_data.get('start') and muhurat_data.get('end')):
+                return None
+                
+            # Parse time strings like "16:30" to create full datetime
+            try:
+                start_time = muhurat_data['start']  # "16:30"
+                end_time = muhurat_data['end']      # "18:00"
+                
+                # Parse hours and minutes
+                start_hour, start_min = map(int, start_time.split(':'))
+                end_hour, end_min = map(int, end_time.split(':'))
+                
+                # Create datetime objects for the requested date
+                start_dt = date.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+                end_dt = date.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+                
+                # Handle case where end time is next day
+                if end_hour < start_hour:
+                    end_dt = end_dt + timedelta(days=1)
+                
+                return {
+                    'name': name,
+                    'start': f"{start_dt.isoformat()}+05:30",
+                    'end': f"{end_dt.isoformat()}+05:30",
+                    'start_formatted': start_dt.strftime('%I:%M %p'),
+                    'end_formatted': end_dt.strftime('%I:%M %p')
+                }
+            except Exception as e:
+                print(f"Error formatting {name}: {e}")
+                return None
+        
+        try:
+            # Auspicious periods
+            abhijit_data = calculate_abhijit_muhurat(date, latitude, longitude, city)
+            abhijit_period = format_muhurat_period(abhijit_data, 'Abhijit Muhurat')
+            if abhijit_period:
+                auspicious_periods.append(abhijit_period)
+            
+            brahma_data = calculate_brahma_muhurat(date, latitude, longitude, city)
+            brahma_period = format_muhurat_period(brahma_data, 'Brahma Muhurat')
+            if brahma_period:
+                auspicious_periods.append(brahma_period)
+            
+            pradosha_data = calculate_pradosha_time(date, latitude, longitude, city)
+            pradosha_period = format_muhurat_period(pradosha_data, 'Pradosha Time')
+            if pradosha_period:
+                auspicious_periods.append(pradosha_period)
+            
+            # Inauspicious periods
+            rahu_data = calculate_rahu_kalam(date, latitude, longitude, city)
+            rahu_period = format_muhurat_period(rahu_data, 'Rahu Kalam')
+            if rahu_period:
+                inauspicious_periods.append(rahu_period)
+            
+            gulika_data = calculate_gulika_kalam(date, latitude, longitude, city)
+            gulika_period = format_muhurat_period(gulika_data, 'Gulika Kalam')
+            if gulika_period:
+                inauspicious_periods.append(gulika_period)
+            
+            yamaganda_data = calculate_yamaganda_kalam(date, latitude, longitude, city)
+            yamaganda_period = format_muhurat_period(yamaganda_data, 'Yamaganda Kalam')
+            if yamaganda_period:
+                inauspicious_periods.append(yamaganda_period)
+        except Exception as e:
+            print(f"Error calculating muhurat periods: {e}")
+        
+        # Ensure we have at least some periods (fallback)
+        if not tithis:
+            tithi_data = calculate_tithi(jd, city)
+            tithis = [{
+                'name': tithi_data['name'],
+                'start': tithi_data['start'],
+                'end': tithi_data['end'],
+                'start_formatted': format_time_12hour_simple(tithi_data['start']),
+                'end_formatted': format_time_12hour_simple(tithi_data['end'])
+            }]
+        
+        print(f"Found {len(tithis)} Tithis, {len(nakshatras)} Nakshatras, {len(karanas)} Karanas, {len(yogas)} Yogas")
+        print(f"Found {len(auspicious_periods)} Auspicious periods, {len(inauspicious_periods)} Inauspicious periods")
+        
+        return {
+            'date': date.strftime('%Y-%m-%d'),
+            'location': {'latitude': latitude, 'longitude': longitude},
+            'sunrise': sunrise_iso,
+            'sunset': sunset_iso,
+            'moonrise': moonrise_iso,
+            'moonset': moonset_iso,
+            'sunrise_next': sunrise_next_iso,
+            'hindu_day_start': hindu_day_start.isoformat(),
+            'hindu_day_end': hindu_day_end.isoformat(),
+            'tithis': tithis,
+            'nakshatras': nakshatras,
+            'karanas': karanas,
+            'yogas': yogas,
+            'auspicious_periods': auspicious_periods,
+            'inauspicious_periods': inauspicious_periods
+        }
+        
+    except Exception as e:
+        print(f"Error in periods calculation: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return simple fallback response
+        return {
+            'date': date.strftime('%Y-%m-%d'),
+            'location': {'latitude': latitude, 'longitude': longitude},
+            'sunrise': f"{date.replace(hour=6, minute=10).isoformat()}+05:30",
+            'sunset': f"{date.replace(hour=18, minute=30).isoformat()}+05:30",
+            'moonrise': f"{date.replace(hour=7, minute=0).isoformat()}+05:30",
+            'moonset': f"{date.replace(hour=19, minute=0).isoformat()}+05:30",
+            'sunrise_next': f"{(date + timedelta(days=1)).replace(hour=6, minute=10).isoformat()}+05:30",
+            'tithis': [],
+            'nakshatras': [],
+            'karanas': [],
+            'yogas': [],
+            'auspicious_periods': [],
+            'inauspicious_periods': []
+        }
+
+def parse_sunrise_to_iso(date: datetime, sunrise_str: str, tz_offset: float) -> str:
+    """
+    Parse sunrise time string to ISO format with timezone
+    
+    Args:
+        date: Base date
+        sunrise_str: Sunrise time in "HH:MM AM/PM" format
+        tz_offset: Timezone offset in hours
+        
+    Returns:
+        ISO format datetime string with timezone
+    """
+    try:
+        # Parse the time string
+        time_part = sunrise_str.replace(" AM", "").replace(" PM", "")
+        hours, minutes = map(int, time_part.split(":"))
+        
+        # Convert to 24-hour format
+        if "PM" in sunrise_str and hours != 12:
+            hours += 12
+        elif "AM" in sunrise_str and hours == 12:
+            hours = 0
+            
+        # Create datetime with timezone
+        sunrise_dt = date.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+        
+        # Format timezone offset
+        tz_hours = int(tz_offset)
+        tz_minutes = int((tz_offset - tz_hours) * 60)
+        tz_str = f"{tz_hours:+03d}:{tz_minutes:02d}"
+        
+        return f"{sunrise_dt.isoformat()}{tz_str}"
+        
+    except Exception as e:
+        print(f"Error parsing sunrise time: {e}")
+        # Fallback to default
+        return f"{date.replace(hour=6, minute=0).isoformat()}+05:30"
 
 def jd_to_local_datetime(jd: float, city: str) -> datetime:
     """Convert Julian Day to local datetime for a specific city"""

@@ -6,6 +6,8 @@ import {
   ApiError,
   PanchangamRequest,
   PanchangamResponse,
+  PeriodRequest,
+  PeriodsResponse,
 } from "../types/panchangam";
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -35,6 +37,35 @@ export async function fetchPanchangamData(
     return await response.json();
   } catch (error) {
     console.error("Error fetching Panchangam data:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch Panchangam periods data from the new periods endpoint
+ */
+export async function fetchPanchangamPeriods(
+  request: PeriodRequest
+): Promise<PeriodsResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/periods`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const errorData: ApiError = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching Panchangam periods data:", error);
     throw error;
   }
 }

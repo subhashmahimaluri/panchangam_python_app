@@ -72,6 +72,104 @@ def format_time_12hour(dt: datetime) -> str:
     """
     return dt.strftime("%I:%M %p")
 
+def format_time_12hour(dt_str: str) -> str:
+    """
+    Format ISO datetime string to 12-hour format string (HH:MM AM/PM)
+    
+    Args:
+        dt_str: ISO datetime string
+        
+    Returns:
+        Formatted time string
+    """
+    try:
+        # Parse ISO string and extract time
+        if 'T' in dt_str:
+            time_part = dt_str.split('T')[1]
+        else:
+            time_part = dt_str
+            
+        # Remove timezone info if present
+        if '+' in time_part:
+            time_part = time_part.split('+')[0]
+        elif 'Z' in time_part:
+            time_part = time_part.replace('Z', '')
+            
+        # Parse hour and minute
+        hours, minutes = map(int, time_part.split(':')[:2])
+        
+        # Convert to 12-hour format
+        if hours == 0:
+            return f"12:{minutes:02d} AM"
+        elif hours < 12:
+            return f"{hours}:{minutes:02d} AM"
+        elif hours == 12:
+            return f"12:{minutes:02d} PM"
+        else:
+            return f"{hours-12}:{minutes:02d} PM"
+            
+    except Exception as e:
+        print(f"Error formatting time: {e}")
+        return "12:00 PM"
+
+def get_timezone_offset_for_coords(latitude: float, longitude: float) -> float:
+    """
+    Get timezone offset for given coordinates (simplified)
+    
+    Args:
+        latitude: Latitude in degrees
+        longitude: Longitude in degrees
+        
+    Returns:
+        Timezone offset in hours
+    """
+    # Simplified timezone calculation based on longitude
+    # For more accuracy, a proper timezone library should be used
+    if longitude >= 67.5 and longitude <= 97.5:  # India timezone
+        return 5.5
+    elif longitude >= -7.5 and longitude <= 22.5:  # UK/Europe timezone  
+        return 1.0
+    elif longitude >= -82.5 and longitude <= -67.5:  # US East Coast
+        return -5.0
+    elif longitude >= -82.5 and longitude <= -67.5:  # Lima timezone
+        return -5.0
+    elif longitude >= 22.5 and longitude <= 37.5:  # Harare timezone
+        return 2.0
+    elif longitude >= 135 and longitude <= 157.5:  # Australia timezone
+        return 10.0
+    else:
+        # Default to UTC
+        return 0.0
+
+def get_timezone_offset(city: str, longitude: float, date: datetime = None) -> float:
+    """
+    Get timezone offset for a city or coordinates
+    
+    Args:
+        city: City name
+        longitude: Longitude for fallback calculation
+        date: Date for DST calculation (optional)
+        
+    Returns:
+        Timezone offset in hours
+    """
+    try:
+        if city in CITY_TIMEZONES:
+            tz = pytz.timezone(CITY_TIMEZONES[city])
+            if date:
+                dt = tz.localize(date) if date.tzinfo is None else date.astimezone(tz)
+                return dt.utcoffset().total_seconds() / 3600
+            else:
+                # Use current time for DST calculation
+                dt = tz.localize(datetime.now())
+                return dt.utcoffset().total_seconds() / 3600
+        else:
+            # Fallback to coordinate-based calculation
+            return get_timezone_offset_for_coords(0, longitude)
+    except Exception as e:
+        print(f"Error getting timezone offset: {e}")
+        return get_timezone_offset_for_coords(0, longitude)
+
 def format_time_24hour(dt: datetime) -> str:
     """
     Format datetime to 24-hour format string (HH:MM)
