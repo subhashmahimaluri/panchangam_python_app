@@ -72,6 +72,26 @@ export const CITIES: CityOption[] = [
     latitude: 52.40656,
     longitude: -1.51217,
   },
+  {
+    name: "New York",
+    latitude: 40.7128,
+    longitude: -74.006,
+  },
+  {
+    name: "Lima",
+    latitude: -12.0464,
+    longitude: -77.0428,
+  },
+  {
+    name: "Harare",
+    latitude: -17.8292,
+    longitude: 31.0522,
+  },
+  {
+    name: "Canberra",
+    latitude: -35.2809,
+    longitude: 149.13,
+  },
 ];
 
 // Error response type

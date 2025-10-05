@@ -23,9 +23,12 @@ NAKSHATRA_NAMES = [
 ]
 
 # Karana names (Half-tithi names)
+# There are 60 karanas total:
+# 7 movable karanas repeat 8 times (56 total): Bava, Balava, Kaulava, Taitila, Gara, Vanija, Vishti
+# 4 fixed karanas (57-60): Shakuni, Chatushpada, Naga, Kimstughno
 KARANA_NAMES = [
-    "Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti",
-    "Shakuni", "Chatushpada", "Naga", "Kimstughano"
+    "Bava", "Balava", "Kaulava", "Taitila", "Garija", "Vanija", "Vishti",  # 0-6: movable karanas
+    "Shakuni", "Chatushpada", "Naga", "Kimstughno"  # 7-10: fixed karanas
 ]
 
 # Yoga names (Solar-Lunar combination names)
@@ -61,7 +64,11 @@ TRUE_NODE = 11
 # Time zones for cities
 CITY_TIMEZONES = {
     "Bengaluru": "Asia/Kolkata",
-    "Coventry": "Europe/London"
+    "Coventry": "Europe/London",
+    "New York": "America/New_York",
+    "Lima": "America/Lima",
+    "Harare": "Africa/Harare",
+    "Canberra": "Australia/Canberra"
 }
 
 # Degrees per Nakshatra (360/27)

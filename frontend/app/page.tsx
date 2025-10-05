@@ -6,12 +6,17 @@ import CitySelector from "../components/CitySelector";
 import DatePicker from "../components/DatePicker";
 import PanchangamDisplay from "../components/PanchangamDisplay";
 import { CITIES, CityOption, PanchangamData } from "../types/panchangam";
-import { checkApiHealth, fetchPanchangamData } from "../utils/api";
+import {
+  checkApiHealth,
+  fetchPanchangamData,
+  fetchSupportedCities,
+} from "../utils/api";
 
 export default function HomePage() {
   const [panchangamData, setPanchangamData] = useState<PanchangamData | null>(
     null
   );
+  const [cities, setCities] = useState<CityOption[]>(CITIES); // Initialize with default cities
   const [selectedCity, setSelectedCity] = useState<CityOption>(CITIES[0]); // Default to Bengaluru
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0] // Today's date in YYYY-MM-DD format
@@ -20,9 +25,40 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [apiHealthy, setApiHealthy] = useState<boolean>(false);
 
-  // Check API health on component mount
+  // Check API health and load cities on component mount
   useEffect(() => {
-    checkApiHealth().then(setApiHealthy);
+    const initializeApp = async () => {
+      const healthy = await checkApiHealth();
+      setApiHealthy(healthy);
+
+      if (healthy) {
+        try {
+          const citiesResponse = await fetchSupportedCities();
+          if (citiesResponse?.cities && Array.isArray(citiesResponse.cities)) {
+            const cityOptions: CityOption[] = citiesResponse.cities.map(
+              (city: any) => ({
+                name: city.name,
+                latitude: city.latitude,
+                longitude: city.longitude,
+              })
+            );
+            setCities(cityOptions);
+            // Update selected city if it's not in the new list
+            if (!cityOptions.find((c) => c.name === selectedCity.name)) {
+              setSelectedCity(cityOptions[0]);
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Failed to load cities from backend, using default cities:",
+            error
+          );
+          // Keep using default CITIES array
+        }
+      }
+    };
+
+    initializeApp();
   }, []);
 
   // Fetch Panchangam data when city or date changes
@@ -102,6 +138,7 @@ export default function HomePage() {
                 Select City
               </label>
               <CitySelector
+                cities={cities}
                 selectedCity={selectedCity}
                 onCityChange={setSelectedCity}
               />

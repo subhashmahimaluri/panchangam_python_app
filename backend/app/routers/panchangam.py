@@ -211,6 +211,30 @@ async def get_supported_cities():
                 "latitude": 52.40656,
                 "longitude": -1.51217,
                 "timezone": "Europe/London"
+            },
+            {
+                "name": "New York",
+                "latitude": 40.7128,
+                "longitude": -74.006,
+                "timezone": "America/New_York"
+            },
+            {
+                "name": "Lima",
+                "latitude": -12.0464,
+                "longitude": -77.0428,
+                "timezone": "America/Lima"
+            },
+            {
+                "name": "Harare",
+                "latitude": -17.8292,
+                "longitude": 31.0522,
+                "timezone": "Africa/Harare"
+            },
+            {
+                "name": "Canberra",
+                "latitude": -35.2809,
+                "longitude": 149.13,
+                "timezone": "Australia/Canberra"
             }
         ]
     }
