@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panchangam Calendar Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-4xl font-bold text-center text-gray-800 mb-8">
+        Panchangam Calendar API Demo
+      </h1>
+
+      <div class="max-w-4xl mx-auto">
+        <!-- Input Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 class="text-2xl font-semibold mb-4">Get Panchangam Data</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Select City</label
+              >
+              <select
+                id="citySelect"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Bengaluru">Bengaluru</option>
+                <option value="Coventry">Coventry</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Select Date</label
+              >
+              <input
+                type="date"
+                id="dateInput"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <button
+            onclick="fetchPanchangam()"
+            class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200"
+          >
+            Get Panchangam Data
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden text-center py-8">
+          <div
+            class="inline-block animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"
+          ></div>
+          <p class="mt-4 text-gray-600">Loading Panchangam data...</p>
+        </div>
+
+        <!-- Results Display -->
+        <div id="results" class="hidden">
+          <!-- Basic Information -->
+          <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4">Basic Information</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="text-center">
+                <p class="text-sm text-gray-600">Sunrise</p>
+                <p
+                  id="sunrise"
+                  class="text-lg font-semibold text-orange-600"
+                ></p>
+              </div>
+              <div class="text-center">
+                <p class="text-sm text-gray-600">Sunset</p>
+                <p
+                  id="sunset"
+                  class="text-lg font-semibold text-orange-600"
+                ></p>
+              </div>
+              <div class="text-center">
+                <p class="text-sm text-gray-600">Moonrise</p>
+                <p
+                  id="moonrise"
+                  class="text-lg font-semibold text-blue-600"
+                ></p>
+              </div>
+              <div class="text-center">
+                <p class="text-sm text-gray-600">Moonset</p>
+                <p id="moonset" class="text-lg font-semibold text-blue-600"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hindu Calendar -->
+          <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4">Hindu Calendar</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="border-l-4 border-purple-500 pl-4">
+                <h4 class="font-semibold text-purple-700">Tithi</h4>
+                <p id="tithi-name" class="text-lg"></p>
+                <p id="tithi-time" class="text-sm text-gray-600"></p>
+              </div>
+              <div class="border-l-4 border-green-500 pl-4">
+                <h4 class="font-semibold text-green-700">Nakshatra</h4>
+                <p id="nakshatra-name" class="text-lg"></p>
+                <p id="nakshatra-time" class="text-sm text-gray-600"></p>
+              </div>
+              <div class="border-l-4 border-blue-500 pl-4">
+                <h4 class="font-semibold text-blue-700">Karana</h4>
+                <p id="karana-name" class="text-lg"></p>
+                <p id="karana-time" class="text-sm text-gray-600"></p>
+              </div>
+              <div class="border-l-4 border-red-500 pl-4">
+                <h4 class="font-semibold text-red-700">Yoga</h4>
+                <p id="yoga-name" class="text-lg"></p>
+                <p id="yoga-time" class="text-sm text-gray-600"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auspicious Periods -->
+          <div class="bg-green-50 rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-green-800">
+              Auspicious Periods
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="text-center">
+                <h4 class="font-semibold text-green-700">Abhijit Muhurat</h4>
+                <p id="abhijit" class="text-lg"></p>
+              </div>
+              <div class="text-center">
+                <h4 class="font-semibold text-green-700">Brahma Muhurat</h4>
+                <p id="brahma" class="text-lg"></p>
+              </div>
+              <div class="text-center">
+                <h4 class="font-semibold text-green-700">Pradosha Time</h4>
+                <p id="pradosha" class="text-lg"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inauspicious Periods -->
+          <div class="bg-red-50 rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-semibold mb-4 text-red-800">
+              Inauspicious Periods
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="text-center">
+                <h4 class="font-semibold text-red-700">Rahu Kalam</h4>
+                <p id="rahu" class="text-lg"></p>
+              </div>
+              <div class="text-center">
+                <h4 class="font-semibold text-red-700">Gulika Kalam</h4>
+                <p id="gulika" class="text-lg"></p>
+              </div>
+              <div class="text-center">
+                <h4 class="font-semibold text-red-700">Yamaganda</h4>
+                <p id="yamaganda" class="text-lg"></p>
+              </div>
+              <div class="text-center">
+                <h4 class="font-semibold text-red-700">Varjyam</h4>
+                <div id="varjyam"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Display -->
+        <div
+          id="error"
+          class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
+        >
+          <p id="error-message"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Set today's date as default
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("dateInput").value = today;
+
+      const cityCoords = {
+        Bengaluru: { latitude: 12.9719, longitude: 77.593 },
+        Coventry: { latitude: 52.40656, longitude: -1.51217 },
+      };
+
+      async function fetchPanchangam() {
+        const city = document.getElementById("citySelect").value;
+        const date = document.getElementById("dateInput").value;
+
+        if (!date) {
+          alert("Please select a date");
+          return;
+        }
+
+        const coords = cityCoords[city];
+        const requestData = {
+          date: date,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          city: city,
+        };
+
+        // Show loading state
+        document.getElementById("loading").classList.remove("hidden");
+        document.getElementById("results").classList.add("hidden");
+        document.getElementById("error").classList.add("hidden");
+
+        try {
+          const response = await fetch("http://localhost:8000/api/panchangam", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestData),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          displayResults(data);
+        } catch (error) {
+          console.error("Error:", error);
+          document.getElementById(
+            "error-message"
+          ).textContent = `Error: ${error.message}`;
+          document.getElementById("error").classList.remove("hidden");
+        } finally {
+          document.getElementById("loading").classList.add("hidden");
+        }
+      }
+
+      function displayResults(data) {
+        // Basic information
+        document.getElementById("sunrise").textContent = data.sunrise;
+        document.getElementById("sunset").textContent = data.sunset;
+        document.getElementById("moonrise").textContent = data.moonrise;
+        document.getElementById("moonset").textContent = data.moonset;
+
+        // Hindu calendar
+        document.getElementById("tithi-name").textContent = data.tithi.name;
+        document.getElementById("tithi-time").textContent = `${formatTime(
+          data.tithi.start
+        )} - ${formatTime(data.tithi.end)}`;
+
+        document.getElementById("nakshatra-name").textContent =
+          data.nakshatra.name;
+        document.getElementById("nakshatra-time").textContent = `${formatTime(
+          data.nakshatra.start
+        )} - ${formatTime(data.nakshatra.end)}`;
+
+        document.getElementById("karana-name").textContent = data.karana.name;
+        document.getElementById("karana-time").textContent = `${formatTime(
+          data.karana.start
+        )} - ${formatTime(data.karana.end)}`;
+
+        document.getElementById("yoga-name").textContent = data.yoga.name;
+        document.getElementById("yoga-time").textContent = `${formatTime(
+          data.yoga.start
+        )} - ${formatTime(data.yoga.end)}`;
+
+        // Auspicious periods
+        document.getElementById(
+          "abhijit"
+        ).textContent = `${data.auspicious_periods.abhijit_muhurat.start} - ${data.auspicious_periods.abhijit_muhurat.end}`;
+        document.getElementById(
+          "brahma"
+        ).textContent = `${data.auspicious_periods.brahma_muhurat.start} - ${data.auspicious_periods.brahma_muhurat.end}`;
+        document.getElementById(
+          "pradosha"
+        ).textContent = `${data.auspicious_periods.pradosha_time.start} - ${data.auspicious_periods.pradosha_time.end}`;
+
+        // Inauspicious periods
+        document.getElementById(
+          "rahu"
+        ).textContent = `${data.inauspicious_periods.rahu.start} - ${data.inauspicious_periods.rahu.end}`;
+        document.getElementById(
+          "gulika"
+        ).textContent = `${data.inauspicious_periods.gulika.start} - ${data.inauspicious_periods.gulika.end}`;
+        document.getElementById(
+          "yamaganda"
+        ).textContent = `${data.inauspicious_periods.yamaganda.start} - ${data.inauspicious_periods.yamaganda.end}`;
+
+        // Varjyam periods (can be multiple)
+        const varjyamDiv = document.getElementById("varjyam");
+        varjyamDiv.innerHTML = "";
+        data.inauspicious_periods.varjyam.forEach((period) => {
+          const p = document.createElement("p");
+          p.textContent = `${period.start} - ${period.end}`;
+          p.className = "text-sm";
+          varjyamDiv.appendChild(p);
+        });
+
+        document.getElementById("results").classList.remove("hidden");
+      }
+
+      function formatTime(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+
+      // Load data on page load
+      window.addEventListener("load", fetchPanchangam);
+    </script>
+  </body>
+</html>

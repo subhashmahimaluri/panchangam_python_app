@@ -1,0 +1,9 @@
+# pnpm configuration for Panchangam frontend
+# Enable hoisted dependencies for better compatibility with Next.js
+shamefully-hoist=true
+
+# Auto-install peer dependencies
+auto-install-peers=true
+
+# Use strict peer dependencies
+strict-peer-dependencies=false
