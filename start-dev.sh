@@ -13,8 +13,14 @@ cleanup() {
     echo ""
     echo "🛑 Shutting down servers..."
     
-    # Kill background jobs
-    jobs -p | xargs -r kill 2>/dev/null || true
+    # Kill backend and frontend processes
+    if [ ! -z "$BACKEND_PID" ] && kill -0 $BACKEND_PID 2>/dev/null; then
+        kill $BACKEND_PID 2>/dev/null || true
+    fi
+    
+    if [ ! -z "$FRONTEND_PID" ] && kill -0 $FRONTEND_PID 2>/dev/null; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
     
     # Kill any remaining processes
     pkill -f "next dev" 2>/dev/null || true
@@ -22,11 +28,10 @@ cleanup() {
     pkill -f "run_server.py" 2>/dev/null || true
     
     echo "✅ Servers stopped."
-    exit 0
 }
 
 # Set up trap to cleanup on script exit
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup SIGINT SIGTERM
 
 # Check if directories exist
 if [ ! -d "frontend" ]; then
@@ -103,5 +108,21 @@ echo ""
 echo "Press Ctrl+C to stop all servers"
 echo "=================================="
 
-# Wait for background processes
-wait
+# Keep script running and wait for user interrupt
+echo "⏳ Servers are running... Press Ctrl+C to stop"
+while true; do
+    # Check if both processes are still running
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        echo "❌ Backend process died unexpectedly"
+        cleanup
+        exit 1
+    fi
+    
+    if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+        echo "❌ Frontend process died unexpectedly"
+        cleanup
+        exit 1
+    fi
+    
+    sleep 2
+done

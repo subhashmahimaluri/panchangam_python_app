@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env /opt/miniconda3/bin/python
 """
 Run the Panchangam API server
 """

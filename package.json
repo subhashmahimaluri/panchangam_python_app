@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "Panchangam Calendar App - Full Stack Development",
   "scripts": {
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "backend": "cd backend && python run_server.py",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\" --kill-others --prefix \"[{name}]\" --names \"backend,frontend\" --colors",
+    "backend": "cd backend && /opt/miniconda3/bin/python run_server.py",
     "frontend": "cd frontend && pnpm dev",
     "install:all": "npm run install:backend && npm run install:frontend",
     "install:backend": "cd backend && pip install -r requirements.txt",
     "install:frontend": "cd frontend && pnpm install",
     "build": "cd frontend && pnpm build",
-    "start": "concurrently \"npm run backend\" \"cd frontend && pnpm start\"",
+    "start": "concurrently \"npm run backend\" \"cd frontend && pnpm start\" --kill-others --prefix \"[{name}]\" --names \"backend,frontend\" --colors",
     "clean": "cd frontend && pnpm clean && cd ../backend && find . -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true"
   },
   "devDependencies": {
